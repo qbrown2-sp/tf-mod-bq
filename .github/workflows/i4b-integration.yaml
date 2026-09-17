@@ -1,0 +1,50 @@
+name: 'i4b-integration'
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main-cbsi
+      - master
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  hive-partition-filter:
+    name: 'external table require_partition_filter'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - uses: 'actions/checkout@v4'
+
+      - name: 'Install i4b-helper prerequisites'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tree
+          # i4b-helper requires gcloud to be present; the test never authenticates.
+          if ! command -v gcloud >/dev/null; then
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+              | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
+            curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+              | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq google-cloud-cli
+          fi
+          if ! command -v yq >/dev/null; then
+            sudo curl -fsSL -o /usr/local/bin/yq \
+              https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+          fi
+          for c in bash terraform tree yq jq curl gcloud realpath python3; do
+            printf '%-10s %s\n' "$c" "$(command -v "$c" || echo MISSING)"
+          done
+          bash --version | head -1
+
+      - uses: 'hashicorp/setup-terraform@v3'
+        with:
+          terraform_version: '1.9.8'
+          terraform_wrapper: false
+
+      - name: 'I4B integration test'
+        run: 'test/i4b/run.sh'
