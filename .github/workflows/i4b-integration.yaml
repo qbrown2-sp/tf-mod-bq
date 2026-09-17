@@ -1,11 +1,24 @@
+# I4B integration test.
+#
+# Manual trigger only, by necessity: this repository is public, while cbsi-dto/i4b is an
+# internal repository behind SAML SSO. A pull_request run cannot clone it -- GITHUB_TOKEN is
+# scoped to this repository, and pull requests from forks receive no secrets. Supplying an
+# i4b-read token as a secret to a *public* repository would be the wrong trade, so this runs
+# on demand in an environment that already has i4b access instead.
+#
+# Run it locally with `test/i4b/run.sh`; see test/i4b/README.md. If this needs to become an
+# automated gate, it belongs in the CI of a private repo that can reach i4b (i4b itself, or
+# data-warehouse-ddl), not here.
+
 name: 'i4b-integration'
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main-cbsi
-      - master
+    inputs:
+      i4b_ref:
+        description: 'i4b revision to test against'
+        required: false
+        default: '48c9815c8ab6c2e0da221256346d6b45b0a2ed9f'
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
@@ -39,7 +52,6 @@ jobs:
           for c in bash terraform tree yq jq curl gcloud realpath python3; do
             printf '%-10s %s\n' "$c" "$(command -v "$c" || echo MISSING)"
           done
-          bash --version | head -1
 
       - uses: 'hashicorp/setup-terraform@v3'
         with:
@@ -47,4 +59,6 @@ jobs:
           terraform_wrapper: false
 
       - name: 'I4B integration test'
+        env:
+          I4B_REF: '${{ inputs.i4b_ref }}'
         run: 'test/i4b/run.sh'

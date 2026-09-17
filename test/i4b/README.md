@@ -44,3 +44,12 @@ MODULE_SOURCE="git::https://github.com/cbsi-dto/tf-mod-bq.git?ref=a8777b2eedfd38
 
 `I4B_REF` pins the I4B revision under test; it defaults to the commit `data-warehouse-ddl`
 currently uses.
+
+## Why this is not a pull-request check
+
+This repository is public; `cbsi-dto/i4b` is internal and behind SAML SSO. A `pull_request` run
+cannot clone I4B: `GITHUB_TOKEN` is scoped to this repository, and pull requests from forks are
+given no secrets at all. Handing a token that can read an internal repository to a public
+repository's CI would be a poor trade, so the workflow is `workflow_dispatch` only and the test is
+expected to be run locally, or in the CI of a private repository that can already reach I4B
+(I4B itself, or `data-warehouse-ddl`).
